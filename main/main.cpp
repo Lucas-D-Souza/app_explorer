@@ -20,6 +20,55 @@
 #include <stdio.h>
 #include "esp_heap_caps.h"
 
+LV_IMAGE_DECLARE(icon_cloud); // Usa a mesma imagem da nuvem do Menu de Fábrica
+static lv_obj_t * scr_splash = NULL;
+
+static void show_splash_screen(const char* version) {
+    // 1. Cria a tela de Splash
+    scr_splash = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(scr_splash, lv_color_black(), 0);
+    lv_obj_remove_flag(scr_splash, LV_OBJ_FLAG_SCROLLABLE);
+
+    // 2. Container Transparente (Flexbox para alinhar Ícone + Texto)
+    lv_obj_t * cont_center = lv_obj_create(scr_splash);
+    lv_obj_set_size(cont_center, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(cont_center, LV_ALIGN_CENTER, 0, -30);
+    lv_obj_set_style_bg_opa(cont_center, LV_OPA_TRANSP, 0); 
+    lv_obj_set_style_border_width(cont_center, 0, 0); 
+    
+    // Configura o Flexbox Lado a Lado
+    lv_obj_set_flex_flow(cont_center, LV_FLEX_FLOW_ROW); 
+    lv_obj_set_flex_align(cont_center, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(cont_center, 0, 0);
+    lv_obj_set_style_pad_column(cont_center, 25, 0); // Espaço entre a nuvem e o texto
+
+    // 3. Ícone da Nuvem
+    lv_obj_t * logo = lv_image_create(cont_center);
+    lv_image_set_src(logo, &icon_cloud);
+    
+    // Escala para dobrar o tamanho e pinta com a cor Azul do tema
+    lv_image_set_scale(logo, 512);
+    lv_obj_set_size(logo, 100, 100); 
+    lv_obj_set_style_image_recolor_opa(logo, LV_OPA_COVER, 0);
+    lv_obj_set_style_image_recolor(logo, lv_color_hex(0x0C85AD), 0); // Azul claro
+
+    // 4. Texto do App
+    lv_obj_t * title = lv_label_create(cont_center);
+    lv_label_set_text(title, "Web\nExplorer"); // Quebra de linha para ficar proporcional
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_30, 0); 
+    lv_obj_set_style_text_color(title, lv_color_white(), 0);
+
+    // 5. Versão no rodapé
+    lv_obj_t * lbl_version = lv_label_create(scr_splash);
+    lv_label_set_text_fmt(lbl_version, "v%s", version);
+    lv_obj_set_style_text_font(lbl_version, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(lbl_version, lv_color_hex(0x555555), 0); 
+    lv_obj_align(lbl_version, LV_ALIGN_BOTTOM_MID, 0, -25);
+
+    // 6. Carrega na tela imediatamente
+    lv_screen_load(scr_splash);
+}
+
 static const char *TAG = "ExplorerFW";
 #define BOOT_BTN_PIN GPIO_NUM_0
 
@@ -337,17 +386,18 @@ static void wifi_init_softap(void) {
     esp_wifi_start();
 }
 
-static void build_ui() {
-    lv_obj_t * scr = lv_screen_active();
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x0A0A0A), 0);
+static lv_obj_t * build_ui() {
+    // CUIDADO AQUI: Cria uma TELA NOVA ao invés de pegar a ativa!
+    lv_obj_t * scr_main = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(scr_main, lv_color_hex(0x0A0A0A), 0);
 
-    lv_obj_t * title = lv_label_create(scr);
+    lv_obj_t * title = lv_label_create(scr_main);
     lv_label_set_text(title, LV_SYMBOL_WIFI " Servidor Web Ativo");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 40);
 
-    lv_obj_t * info_box = lv_obj_create(scr);
+    lv_obj_t * info_box = lv_obj_create(scr_main);
     lv_obj_set_size(info_box, 300, 160);
     lv_obj_align(info_box, LV_ALIGN_CENTER, 0, -20);
     lv_obj_set_style_bg_color(info_box, lv_color_hex(0x1a1a1a), 0);
@@ -361,7 +411,7 @@ static void build_ui() {
     lv_obj_set_style_text_align(lbl_status, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(lbl_status);
 
-    lv_obj_t * btn_exit = lv_btn_create(scr);
+    lv_obj_t * btn_exit = lv_btn_create(scr_main);
     lv_obj_set_size(btn_exit, 240, 60);
     lv_obj_align(btn_exit, LV_ALIGN_BOTTOM_MID, 0, -40);
     lv_obj_set_style_bg_color(btn_exit, lv_color_hex(0xCC0000), 0); 
@@ -373,6 +423,9 @@ static void build_ui() {
     lv_obj_center(lbl_exit);
     
     lv_obj_add_event_cb(btn_exit, [](lv_event_t *e){ return_to_factory(); }, LV_EVENT_CLICKED, NULL);
+
+    // O SEGREDINHO: Devolve a tela principal montada
+    return scr_main; 
 }
 
 // ---------------------------------------------------------
@@ -400,10 +453,7 @@ static void clear_i2c_bus(void) {
 }
 
 extern "C" void app_main(void) {
-    // 1. Destrava o Hardware que ficou preso do Factory Firmware
     clear_i2c_bus();
-
-    // 2. Avisa ao Bootloader que o app funcionou e não deve sofrer Rollback
     esp_ota_mark_app_valid_cancel_rollback();
 
     gpio_config_t io_conf = {};
@@ -413,7 +463,6 @@ extern "C" void app_main(void) {
     io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
     gpio_config(&io_conf);
 
-    // 3. Inicialização Segura do NVS (Evita o Pânico do Wi-Fi)
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
@@ -421,18 +470,43 @@ extern "C" void app_main(void) {
     }
 
     bsp_display_start();
-    bsp_display_lock(0);
-    build_ui();
-    bsp_display_unlock();
-    vTaskDelay(pdMS_TO_TICKS(100)); 
+    
+    // ==========================================
+    // 1. MOSTRA A SPLASH IMEDIATAMENTE
+    // ==========================================
+    if (bsp_display_lock(pdMS_TO_TICKS(100))) {
+        show_splash_screen("1.0.0");
+        bsp_display_unlock();
+    }
+    
+    // Dá 50ms pro display e acende a tela
+    vTaskDelay(pdMS_TO_TICKS(50)); 
     bsp_display_brightness_set(80);
 
+    // ==========================================
+    // 2. INICIA TAREFAS PESADAS DE FUNDO
+    // ==========================================
+    // O Wi-Fi SoftAP e o Cartão SD vão ser iniciados agora!
+    // A tela não vai engasgar, pois a splash já foi renderizada e o SPI está livre!
     wifi_init_softap();
     start_webserver();
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
     SdUsbManager::get_instance().init_local_storage();
-    
+
+    // ==========================================
+    // 3. PREPARA A INTERFACE E AGENDA A TRANSIÇÃO
+    // ==========================================
+    if (bsp_display_lock(pdMS_TO_TICKS(100))) {
+        // Recebe a tela recém-construída na memória RAM
+        lv_obj_t * scr_main = build_ui();
+        
+        // Pede para o LVGL substituir a Splash pela scr_main.
+        // Espera de 2500ms (2.5 segundos) de Splash, Anima de 500ms e DELETA a Splash (true)
+        lv_scr_load_anim(scr_main, LV_SCR_LOAD_ANIM_FADE_ON, 500, 2500, true);
+        
+        bsp_display_unlock();
+    }
+
+    // Loop vigilante do Botão BOOT
     while(1) {
         if (gpio_get_level(BOOT_BTN_PIN) == 0) return_to_factory();
         vTaskDelay(pdMS_TO_TICKS(100));
