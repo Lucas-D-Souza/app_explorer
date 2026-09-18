@@ -387,44 +387,70 @@ static void wifi_init_softap(void) {
 }
 
 static lv_obj_t * build_ui() {
-    // CUIDADO AQUI: Cria uma TELA NOVA ao invés de pegar a ativa!
     lv_obj_t * scr_main = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(scr_main, lv_color_hex(0x0A0A0A), 0);
+    lv_obj_set_style_bg_color(scr_main, lv_color_black(), 0); // Fundo puro AMOLED
 
+    // 1. Título Superior Simples
     lv_obj_t * title = lv_label_create(scr_main);
-    lv_label_set_text(title, LV_SYMBOL_WIFI " Servidor Web Ativo");
+    lv_label_set_text(title, "Servidor de Arquivos");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 40);
 
-    lv_obj_t * info_box = lv_obj_create(scr_main);
-    lv_obj_set_size(info_box, 300, 160);
-    lv_obj_align(info_box, LV_ALIGN_CENTER, 0, -20);
-    lv_obj_set_style_bg_color(info_box, lv_color_hex(0x1a1a1a), 0);
-    lv_obj_set_style_border_color(info_box, lv_color_hex(0x007BFF), 0);
-    lv_obj_set_style_border_width(info_box, 2, 0);
+    // 2. Card Central (Maior, elegante e bloqueado contra Scroll)
+    lv_obj_t * card = lv_obj_create(scr_main);
+    lv_obj_set_size(card, 340, 250); // Altura aumentada de 160 para 250!
+    lv_obj_align(card, LV_ALIGN_CENTER, 0, -20);
+    lv_obj_set_style_bg_color(card, lv_color_hex(0x151515), 0); // Cinza escuro elegante
+    lv_obj_set_style_border_color(card, lv_color_hex(0x333333), 0); // Borda cinza sutil
+    lv_obj_set_style_border_width(card, 1, 0);
+    lv_obj_set_style_radius(card, 25, 0); // Bordas bem arredondadas
+    lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE); // Mata a barra de rolagem!
 
-    lbl_status = lv_label_create(info_box);
-    lv_label_set_text(lbl_status, "Conecte-se a rede Wi-Fi:\n\nSSID: WatchOS-Explorer\nSenha: 12345678\n\nAcesse no Navegador:\nhttp://192.168.4.1");
-    lv_obj_set_style_text_color(lbl_status, lv_color_hex(0x00FF00), 0); 
-    lv_obj_set_style_text_font(lbl_status, &lv_font_montserrat_20, 0);
-    lv_obj_set_style_text_align(lbl_status, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_center(lbl_status);
+    // Usamos Flexbox no Card para organizar os textos automaticamente (distribuição perfeita)
+    lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(card, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
+    // 3. Informações da Rede
+    lv_obj_t * lbl_wifi = lv_label_create(card);
+    lv_label_set_text(lbl_wifi, LV_SYMBOL_WIFI " WatchOS-Explorer");
+    lv_obj_set_style_text_color(lbl_wifi, lv_color_white(), 0);
+    lv_obj_set_style_text_font(lbl_wifi, &lv_font_montserrat_20, 0);
+
+    lv_obj_t * lbl_pass = lv_label_create(card);
+    lv_label_set_text(lbl_pass, "Senha: 12345678");
+    lv_obj_set_style_text_color(lbl_pass, lv_color_hex(0xAAAAAA), 0); // Cinza claro
+    lv_obj_set_style_text_font(lbl_pass, &lv_font_montserrat_16, 0);
+
+    // 4. Instrução + IP de Destaque
+    lv_obj_t * lbl_inst = lv_label_create(card);
+    lv_label_set_text(lbl_inst, "Acesse pelo navegador:");
+    lv_obj_set_style_text_color(lbl_inst, lv_color_hex(0x777777), 0); // Cinza mais escuro
+    lv_obj_set_style_text_font(lbl_inst, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_pad_top(lbl_inst, 15, 0); // Dá um respiro antes do IP
+
+    lv_obj_t * lbl_ip = lv_label_create(card);
+    lv_label_set_text(lbl_ip, "192.168.4.1");
+    lv_obj_set_style_text_color(lbl_ip, lv_color_hex(0x0C85AD), 0); // O mesmo Azul lindo da Logo!
+    lv_obj_set_style_text_font(lbl_ip, &lv_font_montserrat_30, 0); // Fonte Gigante 30
+
+    // 5. Botão de Saída Moderno (Estilo "Alerta Contido")
     lv_obj_t * btn_exit = lv_btn_create(scr_main);
-    lv_obj_set_size(btn_exit, 240, 60);
+    lv_obj_set_size(btn_exit, 260, 60);
     lv_obj_align(btn_exit, LV_ALIGN_BOTTOM_MID, 0, -40);
-    lv_obj_set_style_bg_color(btn_exit, lv_color_hex(0xCC0000), 0); 
+    lv_obj_set_style_bg_color(btn_exit, lv_color_hex(0x2A0A0A), 0); // Fundo Vermelho Quase Preto
     lv_obj_set_style_radius(btn_exit, 30, 0);
+    lv_obj_set_style_border_color(btn_exit, lv_color_hex(0xAA3333), 0); // Borda vermelha escura
+    lv_obj_set_style_border_width(btn_exit, 1, 0);
     
     lv_obj_t * lbl_exit = lv_label_create(btn_exit);
     lv_label_set_text(lbl_exit, LV_SYMBOL_POWER " Encerrar e Voltar");
+    lv_obj_set_style_text_color(lbl_exit, lv_color_hex(0xFF5555), 0); // Texto em vermelho vivo
     lv_obj_set_style_text_font(lbl_exit, &lv_font_montserrat_20, 0);
     lv_obj_center(lbl_exit);
     
     lv_obj_add_event_cb(btn_exit, [](lv_event_t *e){ return_to_factory(); }, LV_EVENT_CLICKED, NULL);
 
-    // O SEGREDINHO: Devolve a tela principal montada
     return scr_main; 
 }
 
